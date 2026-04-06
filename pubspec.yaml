@@ -1,0 +1,25 @@
+name: igloo_http_logger
+description: A beautiful HTTP request/response logger for the http package with ANSI colors, emojis, and advanced filtering options.
+version: 1.0.0
+homepage: https://github.com/igloodev/igloo_http_logger
+repository: https://github.com/igloodev/igloo_http_logger
+issue_tracker: https://github.com/igloodev/igloo_http_logger/issues
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  http: ^1.0.0
+  flutter:
+    sdk: flutter
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+
+topics:
+  - http
+  - logging
+  - networking
+  - debugging
