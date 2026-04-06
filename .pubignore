@@ -1,0 +1,11 @@
+# Exclude build artifacts
+build/
+**/.dart_tool/
+
+# Exclude example platform folders — pub.dev only needs example/lib/
+example/android/
+example/ios/
+example/build/
+example/test/
+example/.idea/
+example/*.iml
