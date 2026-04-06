@@ -1,4 +1,9 @@
 
+## 🔧 1.0.1
+
+### 📝 Documentation
+* Updated `igloo_dio_logger` reference from "sister package" to "companion package" in README
+
 ## 🎉 1.0.0
 
 * 🎨 Initial release
