@@ -5,7 +5,7 @@ A beautiful HTTP request/response logger for the [`http`](https://pub.dev/packag
 ![Igloo HTTP Logger](https://img.shields.io/pub/v/igloo_http_logger.svg)
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 
-> Also using **Dio**? Check out [igloo_dio_logger](https://pub.dev/packages/igloo_dio_logger) — the sister package with the same beautiful output.
+> Also using **Dio**? Check out [igloo_dio_logger](https://pub.dev/packages/igloo_dio_logger) — the companion package with the same beautiful output.
 
 ## ✨ Features
 
