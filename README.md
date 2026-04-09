@@ -146,7 +146,7 @@ Add to your `pubspec.yaml`:
 
 ```yaml
 dependencies:
-  igloo_http_logger: ^1.2.0
+  igloo_http_logger: ^1.1.0
 ```
 
 Run:

@@ -1,6 +1,6 @@
 name: igloo_http_logger
 description: A beautiful HTTP request/response logger for the http package with ANSI colors, emojis, and advanced filtering options.
-version: 1.2.0
+version: 1.1.0
 homepage: https://github.com/igloodev/igloo_http_logger
 repository: https://github.com/igloodev/igloo_http_logger
 issue_tracker: https://github.com/igloodev/igloo_http_logger/issues
