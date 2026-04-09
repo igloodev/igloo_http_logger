@@ -538,6 +538,8 @@ void main() {
 
       final lines = await captureDebugPrint(() async {
         final request = http.StreamedRequest('POST', Uri.parse('https://api.example.com/upload'));
+        // ignore: unawaited_futures — sink must be closed before send() reads it;
+        // awaiting here deadlocks because the consumer (send) hasn't started yet.
         request.sink.close();
         await logger.send(request);
       });

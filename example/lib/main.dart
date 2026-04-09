@@ -1,7 +1,6 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
 import 'package:igloo_http_logger/igloo_http_logger.dart';
 
 void main() {
