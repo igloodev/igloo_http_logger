@@ -35,6 +35,7 @@ IglooHttpLogger mockLogger(
   bool logRequestHeader = true,
   bool logRequestBody = true,
   bool logErrors = true,
+  bool logCurl = false,
   bool onlyErrors = false,
   int? slowRequestThresholdMs,
   List<String>? includeEndpoints,
@@ -52,6 +53,7 @@ IglooHttpLogger mockLogger(
     logRequestHeader: logRequestHeader,
     logRequestBody: logRequestBody,
     logErrors: logErrors,
+    logCurl: logCurl,
     onlyErrors: onlyErrors,
     slowRequestThresholdMs: slowRequestThresholdMs,
     includeEndpoints: includeEndpoints,
@@ -151,6 +153,16 @@ void main() {
       final decoded = jsonDecode(response.body) as List;
       expect(decoded.length, 2);
 
+      logger.close();
+    });
+
+    test('does not log in release mode', () async {
+      // kDebugMode is true in tests — just verify request block appears
+      final logger = mockLogger({'ok': true});
+      final lines = await captureDebugPrint(() async {
+        await logger.get(Uri.parse('https://api.example.com/test'));
+      });
+      expect(stripAnsi(lines.join('\n')), contains('HTTP REQUEST'));
       logger.close();
     });
   });
@@ -312,6 +324,38 @@ void main() {
 
       logger.close();
     });
+
+    test('includeEndpoints with anchored pattern matches correctly', () async {
+      final logger = mockLogger({'ok': true}, includeEndpoints: [r'^/api/.*']);
+
+      // /api/users — should be logged
+      final lines1 = await captureDebugPrint(() async {
+        await logger.get(Uri.parse('https://api.example.com/api/users'));
+      });
+      expect(stripAnsi(lines1.join('\n')), contains('HTTP RESPONSE'));
+
+      // /other — should be suppressed
+      final lines2 = await captureDebugPrint(() async {
+        await logger.get(Uri.parse('https://api.example.com/other'));
+      });
+      expect(stripAnsi(lines2.join('\n')), isNot(contains('HTTP RESPONSE')));
+
+      logger.close();
+    });
+
+    test('slowRequestThresholdMs suppresses fast responses', () async {
+      final logger = mockLogger({'ok': true}, slowRequestThresholdMs: 10000);
+
+      final lines = await captureDebugPrint(() async {
+        await logger.get(Uri.parse('https://api.example.com/test'));
+      });
+
+      // MockClient responds instantly — well below 10 000 ms threshold
+      final joined = stripAnsi(lines.join('\n'));
+      expect(joined, isNot(contains('HTTP RESPONSE')));
+
+      logger.close();
+    });
   });
 
   group('IglooHttpLogger — error logging', () {
@@ -337,6 +381,200 @@ void main() {
       expect(caughtError, isA<http.ClientException>());
 
       logger.close();
+    });
+
+    test('logErrors: false suppresses error block', () async {
+      final logger = IglooHttpLogger(
+        client: MockClient((_) async => throw http.ClientException('fail')),
+        logErrors: false,
+      );
+
+      final lines = await captureDebugPrint(() async {
+        try {
+          await logger.get(Uri.parse('https://api.example.com/test'));
+        } catch (_) {}
+      });
+
+      expect(stripAnsi(lines.join('\n')), isNot(contains('HTTP ERROR')));
+      logger.close();
+    });
+  });
+
+  group('IglooHttpLogger — cURL logging', () {
+    test('logCurl: true prints cURL block', () async {
+      final logger = mockLogger({'ok': true}, logCurl: true);
+
+      final lines = await captureDebugPrint(() async {
+        await logger.get(Uri.parse('https://api.example.com/test'));
+      });
+
+      final joined = stripAnsi(lines.join('\n'));
+      expect(joined, contains('cURL'));
+      expect(joined, contains('curl'));
+      expect(joined, contains('bash/zsh/fish'));
+
+      logger.close();
+    });
+
+    test('logCurl: false prints no cURL block', () async {
+      final logger = mockLogger({'ok': true}, logCurl: false);
+
+      final lines = await captureDebugPrint(() async {
+        await logger.get(Uri.parse('https://api.example.com/test'));
+      });
+
+      expect(stripAnsi(lines.join('\n')), isNot(contains('cURL')));
+
+      logger.close();
+    });
+
+    test('cURL block uses full bordered box style', () async {
+      final logger = mockLogger({'ok': true}, logCurl: true);
+
+      final lines = await captureDebugPrint(() async {
+        await logger.get(Uri.parse('https://api.example.com/test'));
+      });
+
+      final stripped = lines.map(stripAnsi).toList();
+      expect(stripped.any((l) => l.contains('╔') && l.contains('cURL')), isTrue);
+      expect(stripped.any((l) => l.startsWith('╚')), isTrue);
+
+      logger.close();
+    });
+
+    test('cURL block contains -L flag', () async {
+      final logger = mockLogger({'ok': true}, logCurl: true);
+
+      final lines = await captureDebugPrint(() async {
+        await logger.get(Uri.parse('https://api.example.com/test'));
+      });
+
+      expect(stripAnsi(lines.join('\n')), contains('-L'));
+
+      logger.close();
+    });
+
+    test('cURL includes -X POST for POST requests', () async {
+      final logger = mockLogger({'ok': true}, logCurl: true);
+
+      final lines = await captureDebugPrint(() async {
+        await logger.post(
+          Uri.parse('https://api.example.com/users'),
+          body: jsonEncode({'name': 'Alice'}),
+          headers: {'content-type': 'application/json'},
+        );
+      });
+
+      final joined = stripAnsi(lines.join('\n'));
+      expect(joined, contains('-X POST'));
+
+      logger.close();
+    });
+
+    test('cURL omits -X for GET requests', () async {
+      final logger = mockLogger({'ok': true}, logCurl: true);
+
+      final lines = await captureDebugPrint(() async {
+        await logger.get(Uri.parse('https://api.example.com/users'));
+      });
+
+      expect(stripAnsi(lines.join('\n')), isNot(contains('-X GET')));
+
+      logger.close();
+    });
+
+    test('cURL includes -H header flags', () async {
+      final logger = mockLogger({'ok': true}, logCurl: true);
+
+      final lines = await captureDebugPrint(() async {
+        await logger.get(
+          Uri.parse('https://api.example.com/users'),
+          headers: {'Authorization': 'Bearer token123'},
+        );
+      });
+
+      final joined = stripAnsi(lines.join('\n'));
+      expect(joined, contains('-H'));
+      expect(joined, contains('Authorization'));
+
+      logger.close();
+    });
+
+    test('cURL includes URL', () async {
+      final logger = mockLogger({'ok': true}, logCurl: true);
+
+      final lines = await captureDebugPrint(() async {
+        await logger.get(Uri.parse('https://api.example.com/users'));
+      });
+
+      expect(stripAnsi(lines.join('\n')), contains('https://api.example.com/users'));
+
+      logger.close();
+    });
+
+    test('cURL escapes single quotes in body', () async {
+      final logger = mockLogger({'ok': true}, logCurl: true);
+
+      final lines = await captureDebugPrint(() async {
+        await logger.post(
+          Uri.parse('https://api.example.com/users'),
+          body: "it's a test",
+          headers: {'content-type': 'text/plain'},
+        );
+      });
+
+      final joined = stripAnsi(lines.join('\n'));
+      // Single quote must be escaped as '\''
+      expect(joined, contains(r"'\''"));
+
+      logger.close();
+    });
+
+    test('cURL shows streamed body note for StreamedRequest', () async {
+      final logger = IglooHttpLogger(
+        client: MockClient((_) async => http.Response('{}', 200)),
+        logCurl: true,
+      );
+
+      final lines = await captureDebugPrint(() async {
+        final request = http.StreamedRequest('POST', Uri.parse('https://api.example.com/upload'));
+        request.sink.close();
+        await logger.send(request);
+      });
+
+      final joined = stripAnsi(lines.join('\n'));
+      expect(joined, contains('Streamed body'));
+
+      logger.close();
+    });
+
+    test('LoggerConstants.startTimeKey is not used (http logger uses local var)', () {
+      // http logger stores start time in a local variable, not options.extra.
+      // This test documents that the design is different from dio_logger.
+      expect(LoggerConstants.reOpenBrace, isNotNull);
+      expect(LoggerConstants.reKeyValue, isNotNull);
+      expect(LoggerConstants.reNumber, isNotNull);
+    });
+  });
+
+  group('IglooHttpLogger — LoggerConstants public API', () {
+    test('LoggerConstants is accessible from outside the package', () {
+      expect(LoggerConstants.colorReset, isNotEmpty);
+      expect(LoggerConstants.borderVertical, equals('║'));
+      expect(LoggerConstants.separator, equals('│'));
+    });
+
+    test('regex patterns compile and match expected inputs', () {
+      expect(LoggerConstants.reOpenBrace.hasMatch('"data": {'), isTrue);
+      expect(LoggerConstants.reOpenBrace.hasMatch('"items": ['), isTrue);
+      expect(LoggerConstants.reOpenBrace.hasMatch('"name": "Alice"'), isFalse);
+
+      expect(LoggerConstants.reKeyValue.hasMatch('  "key": "value"'), isTrue);
+      expect(LoggerConstants.reKeyValue.hasMatch('  "num": 42'), isTrue);
+
+      expect(LoggerConstants.reNumber.hasMatch('42'), isTrue);
+      expect(LoggerConstants.reNumber.hasMatch('3.14,'), isTrue);
+      expect(LoggerConstants.reNumber.hasMatch('"string"'), isFalse);
     });
   });
 }

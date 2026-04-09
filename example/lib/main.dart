@@ -32,7 +32,7 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  // IglooHttpLogger wraps any http.Client — just swap it in
+  // Standard logger — used for most examples
   final _client = IglooHttpLogger(
     logRequestHeader: true,
     logRequestBody: true,
@@ -42,12 +42,25 @@ class _HomePageState extends State<HomePage> {
     maxWidth: 90,
   );
 
+  // Logger with cURL output enabled
+  final _curlClient = IglooHttpLogger(
+    logRequestBody: true,
+    logResponseBody: true,
+    logCurl: true,
+    maxWidth: 90,
+  );
+
+  // Logger that only logs errors (4xx / 5xx)
+  final _errorOnlyClient = IglooHttpLogger(onlyErrors: true);
+
   String _status = 'Press a button to make a request.\nCheck your debug console for logs.';
   bool _loading = false;
 
   @override
   void dispose() {
     _client.close();
+    _curlClient.close();
+    _errorOnlyClient.close();
     super.dispose();
   }
 
@@ -55,10 +68,9 @@ class _HomePageState extends State<HomePage> {
     _setLoading();
     try {
       final response = await _client.get(
-        Uri.parse('https://api.github.com/users/octocat'),
-        headers: {'accept': 'application/vnd.github+json'},
+        Uri.parse('https://dummyjson.com/posts/1'),
       );
-      _setStatus('GET /users/octocat → ${response.statusCode}');
+      _setStatus('GET /posts/1 → ${response.statusCode}');
     } catch (e) {
       _setStatus('Error: $e');
     }
@@ -68,29 +80,12 @@ class _HomePageState extends State<HomePage> {
     _setLoading();
     try {
       final response = await _client.get(
-        Uri.parse('https://api.github.com/users/octocat/repos'),
-        headers: {'accept': 'application/vnd.github+json'},
+        Uri.parse('https://dummyjson.com/posts').replace(
+          queryParameters: {'limit': '5'},
+        ),
       );
-      final list = jsonDecode(response.body) as List;
-      _setStatus('GET /repos → ${response.statusCode} (${list.length} items)');
-    } catch (e) {
-      _setStatus('Error: $e');
-    }
-  }
-
-  Future<void> _post() async {
-    _setLoading();
-    try {
-      final response = await _client.post(
-        Uri.parse('https://httpbin.org/post'),
-        headers: {'content-type': 'application/json'},
-        body: jsonEncode({
-          'title': 'Hello from IglooHttpLogger',
-          'body': 'This is a test post',
-          'userId': 1,
-        }),
-      );
-      _setStatus('POST /post → ${response.statusCode}');
+      final posts = (jsonDecode(response.body) as Map?)?['posts'] as List?;
+      _setStatus('GET /posts?limit=5 → ${response.statusCode} (${posts?.length} items)');
     } catch (e) {
       _setStatus('Error: $e');
     }
@@ -100,12 +95,48 @@ class _HomePageState extends State<HomePage> {
     _setLoading();
     try {
       final response = await _client.get(
-        Uri.parse('https://api.github.com/search/users').replace(
-          queryParameters: {'q': 'flutter', 'per_page': '3'},
+        Uri.parse('https://dummyjson.com/posts/search').replace(
+          queryParameters: {'q': 'love', 'limit': '3'},
         ),
-        headers: {'accept': 'application/vnd.github+json'},
       );
-      _setStatus('GET /search/users?q=flutter → ${response.statusCode}');
+      final posts = (jsonDecode(response.body) as Map?)?['posts'] as List?;
+      _setStatus('GET /posts/search?q=love → ${response.statusCode} (${posts?.length} items)');
+    } catch (e) {
+      _setStatus('Error: $e');
+    }
+  }
+
+  Future<void> _post() async {
+    _setLoading();
+    try {
+      final response = await _client.post(
+        Uri.parse('https://dummyjson.com/posts/add'),
+        headers: {'content-type': 'application/json'},
+        body: jsonEncode({
+          'title': 'Hello from IglooHttpLogger',
+          'body': 'This is a test post',
+          'userId': 1,
+          'tags': ['flutter', 'http'],
+        }),
+      );
+      _setStatus('POST /posts/add → ${response.statusCode}');
+    } catch (e) {
+      _setStatus('Error: $e');
+    }
+  }
+
+  Future<void> _getCurl() async {
+    _setLoading();
+    try {
+      final response = await _curlClient.post(
+        Uri.parse('https://dummyjson.com/posts/add'),
+        headers: {
+          'content-type': 'application/json',
+          'Authorization': 'Bearer my-token',
+        },
+        body: jsonEncode({'title': 'cURL test', 'userId': 1}),
+      );
+      _setStatus('POST /posts/add → ${response.statusCode}\n(cURL printed in console)');
     } catch (e) {
       _setStatus('Error: $e');
     }
@@ -113,20 +144,23 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> _triggerError() async {
     _setLoading();
-    final errorClient = IglooHttpLogger(
-      client: http.Client(),
-      onlyErrors: true,
-    );
+
+    // Success — silently skipped because onlyErrors: true
     try {
-      await errorClient.get(
-        Uri.parse('https://api.github.com/users/this-user-xyz-404-not-exist'),
-        headers: {'accept': 'application/vnd.github+json'},
-      );
-      _setStatus('GET /users/... → 404 (logged because onlyErrors: true)');
+      await _errorOnlyClient.get(Uri.parse('https://dummyjson.com/posts/1'));
+      _setStatus('GET /posts/1 silently skipped\n(onlyErrors: true)');
     } catch (e) {
       _setStatus('Error: $e');
-    } finally {
-      errorClient.close();
+    }
+
+    // 404 — this will be logged
+    try {
+      await _errorOnlyClient.get(Uri.parse('https://dummyjson.com/posts/0'));
+    } catch (e) {
+      _setStatus(
+        'GET /posts/0 → error\n'
+        '(logged because onlyErrors: true;\nGET /posts/1 silently skipped)',
+      );
     }
   }
 
@@ -147,7 +181,7 @@ class _HomePageState extends State<HomePage> {
         title: const Text('Igloo HTTP Logger'),
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
       ),
-      body: Padding(
+      body: SingleChildScrollView(
         padding: const EdgeInsets.all(24),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -158,15 +192,17 @@ class _HomePageState extends State<HomePage> {
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 24),
-            _Button(label: '🚀 GET /users/octocat', onTap: _get),
+            _Button(label: '🚀 GET /posts/1', onTap: _get),
             const SizedBox(height: 12),
-            _Button(label: '📋 GET /users/octocat/repos  —  Items count', onTap: _getList),
+            _Button(label: '📋 GET /posts?limit=5  —  Items count', onTap: _getList),
             const SizedBox(height: 12),
-            _Button(label: '🔍 GET /search/users?q=flutter  —  Query params', onTap: _getWithQueryParams),
+            _Button(label: '🔍 GET /posts/search?q=love  —  Query params', onTap: _getWithQueryParams),
             const SizedBox(height: 12),
-            _Button(label: '✨ POST /post  —  With JSON body', onTap: _post),
+            _Button(label: '✨ POST /posts/add  —  With JSON body', onTap: _post),
             const SizedBox(height: 12),
-            _Button(label: '❌ GET /users/unknown  —  404 error', onTap: _triggerError, isError: true),
+            _Button(label: '🔗 POST /posts/add  —  With cURL output', onTap: _getCurl),
+            const SizedBox(height: 12),
+            _Button(label: '❌ GET /posts/0  —  404 error', onTap: _triggerError, isError: true),
             const SizedBox(height: 32),
             if (_loading)
               const Center(child: CircularProgressIndicator())

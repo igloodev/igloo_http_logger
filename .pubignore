@@ -1,11 +1,30 @@
-# Exclude build artifacts
+# Build artefacts
 build/
-**/.dart_tool/
+.dart_tool/
+.pub-cache/
+.pub/
 
-# Exclude example platform folders — pub.dev only needs example/lib/
+# Platform-specific example files — only example/lib and example/pubspec.yaml are needed on pub.dev
 example/android/
 example/ios/
-example/build/
+example/linux/
+example/macos/
+example/windows/
+example/web/
+example/.metadata
 example/test/
-example/.idea/
-example/*.iml
+
+# IntelliJ / IDE files
+*.iml
+*.ipr
+*.iws
+.idea/
+
+# Development notes (internal only)
+PACKAGE_CHECKLIST.md
+PUBLISHING_STEPS.md
+
+# Misc
+.DS_Store
+coverage/
+*.log

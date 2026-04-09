@@ -52,6 +52,9 @@ class LoggerConstants {
   /// HTTP error title with emoji
   static const textHttpError = '❌ HTTP ERROR';
 
+  /// cURL command block title with emoji
+  static const textCurl = '🔗 cURL';
+
   // =========================================================================
   // LOG LABELS
   // =========================================================================
@@ -89,6 +92,21 @@ class LoggerConstants {
 
   /// Error message for invalid maxWidth value
   static const textMaxWidthError = 'maxWidth must be between 60 and 200';
+
+  // =========================================================================
+  // REGEX PATTERNS
+  // =========================================================================
+  // RegExp has no const constructor in Dart, so static final is used.
+  // static final is initialized once (lazily on first access).
+
+  /// Matches a JSON key that opens an object or array: `"key": {` or `"key": [`
+  static final reOpenBrace = RegExp(r'"([^"]+)"\s*:\s*[\{\[]');
+
+  /// Matches a JSON key-value line: `  "key": value`
+  static final reKeyValue = RegExp(r'^(\s*)"([^"]+)"\s*:\s*(.*)$');
+
+  /// Matches a JSON number value (with optional trailing comma)
+  static final reNumber = RegExp(r'^-?\d+\.?\d*,?$');
 
   // =========================================================================
   // BORDER CHARACTERS

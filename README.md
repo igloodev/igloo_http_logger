@@ -21,6 +21,7 @@ A beautiful HTTP request/response logger for the [`http`](https://pub.dev/packag
 - 🔢 **Array item annotations** — each item labeled `// [0]`, `// [1]`, with nested array support
 - 📋 **Items count** in the status line for List responses and common wrapper keys like `data`, `users`, `results` (`Items: 42`)
 - 🎯 **Smart header wrapping** for long values (like JWT tokens)
+- 🔗 **cURL logging** — opt-in `logCurl: true` prints a copy-pasteable cURL command after each request
 - ⚡ **Zero performance impact** in release mode (only logs in debug mode)
 
 ## 📸 Screenshots
@@ -86,6 +87,48 @@ A beautiful HTTP request/response logger for the [`http`](https://pub.dev/packag
 ╚═══════════════════════════════════════════════════════════════════
 ```
 
+### cURL Logging (opt-in)
+```
+╔═══ 🔗 cURL ═══════════════════════════════════════════════════════
+║ # bash/zsh/fish
+║ curl \
+║   -L \
+║   -X POST \
+║   -H 'content-type: application/json' \
+║   -H 'authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...' \
+║   -d '{"email":"user@example.com","password":"secret"}' \
+║   'https://api.example.com/auth/login'
+╚═══════════════════════════════════════════════════════════════════
+```
+
+#### MultipartRequest (form data)
+```
+╔═══ 🔗 cURL ═══════════════════════════════════════════════════════
+║ # bash/zsh/fish
+║ curl \
+║   -L \
+║   -X POST \
+║   --form 'name=Alice' \
+║   --form 'avatar=@"profile.jpg"' \
+║   'https://api.example.com/users'
+╚═══════════════════════════════════════════════════════════════════
+```
+> File fields show the filename as a placeholder (`@"filename"`).
+> Replace with the full path on your machine: `--form 'avatar=@"/Users/alice/profile.jpg"'`
+
+#### StreamedRequest
+```
+╔═══ 🔗 cURL ═══════════════════════════════════════════════════════
+║ # bash/zsh/fish
+║ # ⚠️  Streamed body — body bytes not available at log time
+║ curl \
+║   -L \
+║   -X POST \
+║   -H 'content-type: application/octet-stream' \
+║   'https://api.example.com/upload'
+╚═══════════════════════════════════════════════════════════════════
+```
+
 ### Error Logging
 ```
 ╔═══ ❌ HTTP ERROR ═════════════════════════════════════════════════
@@ -103,7 +146,7 @@ Add to your `pubspec.yaml`:
 
 ```yaml
 dependencies:
-  igloo_http_logger: ^1.0.0
+  igloo_http_logger: ^1.2.0
 ```
 
 Run:
@@ -171,6 +214,7 @@ final client = IglooHttpLogger(
 | `logResponseHeader` | `bool` | `false` | Show response headers |
 | `logResponseBody` | `bool` | `true` | Show response body |
 | `logErrors` | `bool` | `true` | Show errors |
+| `logCurl` | `bool` | `false` | Print a copy-pasteable cURL command after each request |
 | `maxWidth` | `int` | `90` | Maximum width of log output |
 | `includeEndpoints` | `List<String>?` | `null` | Only log matching endpoints (regex) |
 | `excludeEndpoints` | `List<String>?` | `null` | Exclude matching endpoints (regex) |
@@ -198,6 +242,27 @@ final client = IglooHttpLogger(onlyErrors: true);
 ```dart
 final client = IglooHttpLogger(slowRequestThresholdMs: 500);
 ```
+
+### Log cURL Commands
+
+Enable `logCurl: true` to print a ready-to-paste cURL command after every request.
+The cURL block uses the same `╔═══ ... ╚═══` bordered style as request/response logs.
+
+```dart
+final client = IglooHttpLogger(logCurl: true);
+```
+
+**Body handling at a glance:**
+
+| Request type | cURL output |
+|---|---|
+| `http.Request` (JSON/text body) | `-d '{"key":"value"}'` |
+| `http.MultipartRequest` (text fields) | `--form 'key=value'` per field |
+| `http.MultipartRequest` (file fields) | `--form 'key=@"filename"'` — replace with full path |
+| `http.StreamedRequest` | Body omitted + `⚠️` note: _"body bytes not available at log time"_ |
+
+> **Windows users:** cURL syntax uses bash `\` line continuation and single-quoted values.
+> Run in WSL, Git Bash, or adapt manually: `\` → `^`, `'...'` → `"..."` with `\"` escaping.
 
 ### Production-Safe Setup
 
