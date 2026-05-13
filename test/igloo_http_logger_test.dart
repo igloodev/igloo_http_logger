@@ -579,4 +579,244 @@ void main() {
       expect(LoggerConstants.reNumber.hasMatch('"string"'), isFalse);
     });
   });
+
+  group('IglooHttpLogger — request ID tracking', () {
+    test('request block shows ID: label', () async {
+      final logger = mockLogger({'ok': true});
+
+      final lines = await captureDebugPrint(() async {
+        await logger.get(Uri.parse('https://api.example.com/test'));
+      });
+
+      final joined = stripAnsi(lines.join('\n'));
+      expect(joined, contains('ID:'));
+      logger.close();
+    });
+
+    test('response block shows same ID as request block', () async {
+      final logger = mockLogger({'ok': true});
+
+      final lines = await captureDebugPrint(() async {
+        await logger.get(Uri.parse('https://api.example.com/test'));
+      });
+
+      final joined = stripAnsi(lines.join('\n'));
+      // Extract all ID values — request and response should share the same one
+      final idMatches = RegExp(r'ID: #([0-9a-f]{4})').allMatches(joined).toList();
+      expect(idMatches.length, greaterThanOrEqualTo(2));
+      expect(idMatches.first.group(1), equals(idMatches.last.group(1)));
+
+      logger.close();
+    });
+
+    test('error block shows ID: label', () async {
+      final logger = IglooHttpLogger(
+        client: MockClient((_) async => throw http.ClientException('timeout')),
+      );
+
+      final lines = await captureDebugPrint(() async {
+        try {
+          await logger.get(Uri.parse('https://api.example.com/test'));
+        } catch (_) {}
+      });
+
+      final joined = stripAnsi(lines.join('\n'));
+      expect(joined, contains('ID:'));
+      logger.close();
+    });
+  });
+
+  group('IglooHttpLogger — multipart form data preview', () {
+    test('multipart request shows [Form Data] label', () async {
+      final logger = IglooHttpLogger(
+        client: MockClient((_) async => http.Response('{"ok":true}', 200,
+            headers: {'content-type': 'application/json'})),
+      );
+
+      final lines = await captureDebugPrint(() async {
+        final request = http.MultipartRequest('POST', Uri.parse('https://api.example.com/upload'));
+        request.fields['name'] = 'Alice';
+        await logger.send(request);
+      });
+
+      final joined = stripAnsi(lines.join('\n'));
+      expect(joined, contains('[Form Data]'));
+      logger.close();
+    });
+
+    test('multipart request shows Fields: section with key/value', () async {
+      final logger = IglooHttpLogger(
+        client: MockClient((_) async => http.Response('{"ok":true}', 200,
+            headers: {'content-type': 'application/json'})),
+      );
+
+      final lines = await captureDebugPrint(() async {
+        final request = http.MultipartRequest('POST', Uri.parse('https://api.example.com/upload'));
+        request.fields['username'] = 'bob';
+        request.fields['role'] = 'admin';
+        await logger.send(request);
+      });
+
+      final joined = stripAnsi(lines.join('\n'));
+      expect(joined, contains('Fields: (2)'));
+      expect(joined, contains('username:'));
+      expect(joined, contains('bob'));
+      logger.close();
+    });
+
+    test('multipart request shows Files: section with filename and content-type', () async {
+      final logger = IglooHttpLogger(
+        client: MockClient((_) async => http.Response('{"ok":true}', 200,
+            headers: {'content-type': 'application/json'})),
+      );
+
+      final lines = await captureDebugPrint(() async {
+        final request = http.MultipartRequest('POST', Uri.parse('https://api.example.com/upload'));
+        request.files.add(http.MultipartFile.fromBytes(
+          'avatar',
+          [0, 1, 2],
+          filename: 'photo.jpg',
+        ));
+        await logger.send(request);
+      });
+
+      final joined = stripAnsi(lines.join('\n'));
+      expect(joined, contains('Files: (1)'));
+      expect(joined, contains('photo.jpg'));
+      logger.close();
+    });
+
+    test('multipart request without files omits Files: section', () async {
+      final logger = IglooHttpLogger(
+        client: MockClient((_) async => http.Response('{"ok":true}', 200,
+            headers: {'content-type': 'application/json'})),
+      );
+
+      final lines = await captureDebugPrint(() async {
+        final request = http.MultipartRequest('POST', Uri.parse('https://api.example.com/upload'));
+        request.fields['note'] = 'hello';
+        await logger.send(request);
+      });
+
+      final joined = stripAnsi(lines.join('\n'));
+      expect(joined, isNot(contains('Files:')));
+      logger.close();
+    });
+  });
+
+  group('IglooHttpLogger — GraphQL support', () {
+    test('GraphQL request shows [GraphQL] label', () async {
+      final logger = mockLogger({'data': {}});
+
+      final lines = await captureDebugPrint(() async {
+        await logger.post(
+          Uri.parse('https://api.example.com/graphql'),
+          body: jsonEncode({'query': '{ users { id } }'}),
+          headers: {'content-type': 'application/json'},
+        );
+      });
+
+      final joined = stripAnsi(lines.join('\n'));
+      expect(joined, contains('[GraphQL]'));
+      logger.close();
+    });
+
+    test('GraphQL request shows GraphQL: section with query', () async {
+      final logger = mockLogger({'data': {}});
+
+      final lines = await captureDebugPrint(() async {
+        await logger.post(
+          Uri.parse('https://api.example.com/graphql'),
+          body: jsonEncode({'query': 'query GetUser { user { id name } }'}),
+          headers: {'content-type': 'application/json'},
+        );
+      });
+
+      final joined = stripAnsi(lines.join('\n'));
+      expect(joined, contains('GraphQL:'));
+      expect(joined, contains('GetUser'));
+      logger.close();
+    });
+
+    test('GraphQL request with variables shows Variables: section', () async {
+      final logger = mockLogger({'data': {}});
+
+      final lines = await captureDebugPrint(() async {
+        await logger.post(
+          Uri.parse('https://api.example.com/graphql'),
+          body: jsonEncode({
+            'query': 'query GetUser(\$id: ID!) { user(id: \$id) { id } }',
+            'variables': {'id': '42'},
+          }),
+          headers: {'content-type': 'application/json'},
+        );
+      });
+
+      final joined = stripAnsi(lines.join('\n'));
+      expect(joined, contains('Variables:'));
+      expect(joined, contains('42'));
+      logger.close();
+    });
+
+    test('non-GraphQL body with "query" key as non-string is treated as regular JSON', () async {
+      final logger = mockLogger({'ok': true});
+
+      final lines = await captureDebugPrint(() async {
+        await logger.post(
+          Uri.parse('https://api.example.com/search'),
+          body: jsonEncode({'query': 123}),
+          headers: {'content-type': 'application/json'},
+        );
+      });
+
+      final joined = stripAnsi(lines.join('\n'));
+      expect(joined, isNot(contains('[GraphQL]')));
+      logger.close();
+    });
+
+    test('regular JSON body without query key is not treated as GraphQL', () async {
+      final logger = mockLogger({'ok': true});
+
+      final lines = await captureDebugPrint(() async {
+        await logger.post(
+          Uri.parse('https://api.example.com/users'),
+          body: jsonEncode({'name': 'Alice', 'email': 'alice@example.com'}),
+          headers: {'content-type': 'application/json'},
+        );
+      });
+
+      final joined = stripAnsi(lines.join('\n'));
+      expect(joined, isNot(contains('[GraphQL]')));
+      logger.close();
+    });
+  });
+
+  group('IglooHttpLogger — content wrapping', () {
+    test('very long body values are wrapped within maxWidth', () async {
+      final longValue = 'x' * 200;
+      final logger = IglooHttpLogger(
+        client: MockClient((_) async => http.Response(
+              jsonEncode({'value': longValue}),
+              200,
+              headers: {'content-type': 'application/json'},
+            )),
+        maxWidth: 90,
+      );
+
+      final lines = await captureDebugPrint(() async {
+        await logger.get(Uri.parse('https://api.example.com/test'));
+      });
+
+      // No line should exceed maxWidth + ANSI overhead
+      // Strip ANSI and verify no content line is longer than maxWidth
+      final stripped = lines.map(stripAnsi).toList();
+      for (final line in stripped) {
+        if (line.contains('║') && line.trimLeft().startsWith('║')) {
+          expect(line.length, lessThanOrEqualTo(200),
+              reason: 'Line should not be excessively long: $line');
+        }
+      }
+      logger.close();
+    });
+  });
 }

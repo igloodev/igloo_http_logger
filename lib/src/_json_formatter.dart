@@ -60,7 +60,7 @@ extension _IglooHttpLoggerFormatter on IglooHttpLogger {
 
       final colorizedLine = _colorizeJsonLine(line, color);
 
-      if (line.length <= 800) {
+      if (line.length <= maxWidth - 4) {
         debugPrint('$color${LoggerConstants.borderVertical}${LoggerConstants.colorReset}   $colorizedLine');
       } else {
         _printVeryLongLine(line, color);
@@ -150,26 +150,31 @@ extension _IglooHttpLoggerFormatter on IglooHttpLogger {
   // VERY LONG LINES
   // =========================================================================
 
-  /// Splits lines longer than 800 chars at word boundaries to avoid truncation.
+  /// Wraps lines longer than [maxWidth - 4] to stay within the border.
   void _printVeryLongLine(String line, String color) {
-    const maxLength = 800;
+    final chunkSize = maxWidth - 4;
     var remaining = line;
+    var isFirst = true;
 
     while (remaining.isNotEmpty) {
-      if (remaining.length <= maxLength) {
-        debugPrint('$color${LoggerConstants.borderVertical}${LoggerConstants.colorReset}   $remaining');
+      if (remaining.length <= chunkSize) {
+        final chunk = isFirst ? _colorizeJsonLine(remaining, color) : '${LoggerConstants.colorDim}${LoggerConstants.colorYellow}$remaining${LoggerConstants.colorReset}';
+        debugPrint('$color${LoggerConstants.borderVertical}${LoggerConstants.colorReset}   $chunk');
         break;
       }
-      var breakPoint = maxLength;
-      const searchStart = maxLength - 100;
-      for (var i = maxLength; i >= searchStart && i < remaining.length; i--) {
+      var breakPoint = chunkSize;
+      final searchStart = chunkSize - 20;
+      for (var i = chunkSize - 1; i >= searchStart && i >= 0; i--) {
         if (remaining[i] == ' ' || remaining[i] == ',' || remaining[i] == ';' || remaining[i] == ':') {
           breakPoint = i + 1;
           break;
         }
       }
-      debugPrint('$color${LoggerConstants.borderVertical}${LoggerConstants.colorReset}   ${remaining.substring(0, breakPoint).trimRight()}');
+      final chunk = remaining.substring(0, breakPoint).trimRight();
+      final colorized = isFirst ? _colorizeJsonLine(chunk, color) : '${LoggerConstants.colorDim}${LoggerConstants.colorYellow}$chunk${LoggerConstants.colorReset}';
+      debugPrint('$color${LoggerConstants.borderVertical}${LoggerConstants.colorReset}   $colorized');
       remaining = remaining.substring(breakPoint).trimLeft();
+      isFirst = false;
     }
   }
 }

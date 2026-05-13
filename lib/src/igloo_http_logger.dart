@@ -111,9 +111,10 @@ class IglooHttpLogger extends http.BaseClient {
   @override
   Future<http.StreamedResponse> send(http.BaseRequest request) async {
     final startTime = DateTime.now().millisecondsSinceEpoch;
+    final requestId = (DateTime.now().microsecondsSinceEpoch & 0xFFFF).toRadixString(16).padLeft(4, '0');
 
     if (kDebugMode && _shouldLogEndpoint(request.url.path)) {
-      _printRequest(request);
+      _printRequest(request, requestId);
       if (logCurl) _printCurl(request);
     }
 
@@ -125,7 +126,7 @@ class IglooHttpLogger extends http.BaseClient {
       final duration = DateTime.now().millisecondsSinceEpoch - startTime;
 
       if (kDebugMode && _shouldLogResponse(streamedResponse.statusCode, request.url.path, duration)) {
-        _printResponse(request, streamedResponse, bytes, duration);
+        _printResponse(request, streamedResponse, bytes, duration, requestId);
       }
 
       // Return a new StreamedResponse backed by the buffered bytes.
@@ -142,7 +143,7 @@ class IglooHttpLogger extends http.BaseClient {
     } catch (e) {
       final duration = DateTime.now().millisecondsSinceEpoch - startTime;
       if (kDebugMode && logErrors && _shouldLogEndpoint(request.url.path)) {
-        _printError(request, e, duration);
+        _printError(request, e, duration, requestId);
       }
       rethrow;
     }

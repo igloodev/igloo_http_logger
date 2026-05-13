@@ -24,6 +24,9 @@ example/test/
 PACKAGE_CHECKLIST.md
 PUBLISHING_STEPS.md
 
+# Screenshots — hosted on GitHub, referenced via raw.githubusercontent.com URLs in README
+screenshots/
+
 # Misc
 .DS_Store
 coverage/

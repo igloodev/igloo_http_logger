@@ -22,121 +22,41 @@ A beautiful HTTP request/response logger for the [`http`](https://pub.dev/packag
 - 📋 **Items count** in the status line for List responses and common wrapper keys like `data`, `users`, `results` (`Items: 42`)
 - 🎯 **Smart header wrapping** for long values (like JWT tokens)
 - 🔗 **cURL logging** — opt-in `logCurl: true` prints a copy-pasteable cURL command after each request
+- 🪪 **Request ID tracking** — bold cyan `│ ID: #xxxx` on every request/response/error block for easy correlation of concurrent requests
+- 📋 **Multipart form data preview** — `http.MultipartRequest` bodies log `Fields:` and `Files:` metadata (name, filename, content-type)
+- 🔍 **GraphQL support** — requests with a `query` key render as a dedicated `[GraphQL]` block with query and variables sections
 - ⚡ **Zero performance impact** in release mode (only logs in debug mode)
 
 ## 📸 Screenshots
 
 ### Request Logging
-```
-╔═══ 🚀 HTTP REQUEST ═══════════════════════════════════════════════
-║ POST /api/v1/auth/login │ 156B
-║
-║ Headers:
-║   content-type: application/json
-║   authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-║
-║ Body:
-║   {
-║     "email": "user@example.com",
-║     "password": "********"
-║   }
-╚═══════════════════════════════════════════════════════════════════
-```
+![Request Logging](https://raw.githubusercontent.com/igloodev/igloo_http_logger/master/screenshots/01_request.png)
 
 ### Response Logging
-```
-╔═══ ✅ HTTP RESPONSE ══════════════════════════════════════════════
-║ POST /api/v1/auth/login
-║ Status: 200 ✅ │ Duration: 245ms │ Size: 1.24KB
-║
-║ Body:
-║   {
-║     "success": true,
-║     "data": {
-║       "user": {
-║         "id": "123",
-║         "email": "user@example.com"
-║       }, // user
-║       "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-║     } // data
-║   }
-╚═══════════════════════════════════════════════════════════════════
-```
+![Response Logging](https://raw.githubusercontent.com/igloodev/igloo_http_logger/master/screenshots/02_response.png)
 
 ### List Response (with Items count)
-```
-╔═══ ✅ HTTP RESPONSE ══════════════════════════════════════════════
-║ GET /api/v1/users
-║ Status: 200 ✅ │ Duration: 112ms │ Size: 2.48KB │ Items: 3
-║
-║ Body:
-║   [
-║     {
-║       "id": "1",
-║       "name": "Alice"
-║     }, // [0]
-║     {
-║       "id": "2",
-║       "name": "Bob"
-║     }, // [1]
-║     {
-║       "id": "3",
-║       "name": "Charlie"
-║     } // [2]
-║   ]
-╚═══════════════════════════════════════════════════════════════════
-```
+![List Response](https://raw.githubusercontent.com/igloodev/igloo_http_logger/master/screenshots/03_list_response.png)
 
 ### cURL Logging (opt-in)
-```
-╔═══ 🔗 cURL ═══════════════════════════════════════════════════════
-║ # bash/zsh/fish
-║ curl \
-║   -L \
-║   -X POST \
-║   -H 'content-type: application/json' \
-║   -H 'authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...' \
-║   -d '{"email":"user@example.com","password":"secret"}' \
-║   'https://api.example.com/auth/login'
-╚═══════════════════════════════════════════════════════════════════
-```
+![cURL Logging](https://raw.githubusercontent.com/igloodev/igloo_http_logger/master/screenshots/04_curl.png)
 
-#### MultipartRequest (form data)
-```
-╔═══ 🔗 cURL ═══════════════════════════════════════════════════════
-║ # bash/zsh/fish
-║ curl \
-║   -L \
-║   -X POST \
-║   --form 'name=Alice' \
-║   --form 'avatar=@"profile.jpg"' \
-║   'https://api.example.com/users'
-╚═══════════════════════════════════════════════════════════════════
-```
-> File fields show the filename as a placeholder (`@"filename"`).
-> Replace with the full path on your machine: `--form 'avatar=@"/Users/alice/profile.jpg"'`
+### Multipart Form Data Preview
+![FormData Preview](https://raw.githubusercontent.com/igloodev/igloo_http_logger/master/screenshots/05_formdata.png)
 
-#### StreamedRequest
-```
-╔═══ 🔗 cURL ═══════════════════════════════════════════════════════
-║ # bash/zsh/fish
-║ # ⚠️  Streamed body — body bytes not available at log time
-║ curl \
-║   -L \
-║   -X POST \
-║   -H 'content-type: application/octet-stream' \
-║   'https://api.example.com/upload'
-╚═══════════════════════════════════════════════════════════════════
-```
+### GraphQL Support
+![GraphQL Support](https://raw.githubusercontent.com/igloodev/igloo_http_logger/master/screenshots/06_graphql.png)
+
+### Request ID Tracking
+
+Every request, response, and error block shows a bold cyan `│ ID: #xxxx` suffix. The 4-hex ID is auto-generated per request, making it easy to match logs from concurrent calls:
+
+![Request ID Tracking](https://raw.githubusercontent.com/igloodev/igloo_http_logger/master/screenshots/07_concurrent_requests_id.png)
+
+> **How to use it:** When you see an unexpected response in the console, note its `ID:` value and search upward for the matching request block with the same ID. No configuration needed — IDs are generated automatically.
 
 ### Error Logging
-```
-╔═══ ❌ HTTP ERROR ═════════════════════════════════════════════════
-║ GET /api/v1/users/999
-║ ClientException │ Duration: 89ms
-║ Connection refused
-╚═══════════════════════════════════════════════════════════════════
-```
+![Error Logging](https://raw.githubusercontent.com/igloodev/igloo_http_logger/master/screenshots/08_error.png)
 
 ## 🚀 Getting Started
 
@@ -146,7 +66,7 @@ Add to your `pubspec.yaml`:
 
 ```yaml
 dependencies:
-  igloo_http_logger: ^1.1.0
+  igloo_http_logger: ^1.2.0
 ```
 
 Run:

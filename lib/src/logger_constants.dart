@@ -83,6 +83,21 @@ class LoggerConstants {
   /// Items label — shown when root response is a List
   static const textItems = 'Items:';
 
+  /// Request ID label — shown on every request/response/error block
+  static const textRequestId = 'ID:';
+
+  /// GraphQL operation label
+  static const textGraphQL = 'GraphQL:';
+
+  /// GraphQL variables label
+  static const textVariables = 'Variables:';
+
+  /// FormData text fields label
+  static const textFormFields = 'Fields:';
+
+  /// FormData file fields label
+  static const textFormFiles = 'Files:';
+
   // =========================================================================
   // ERROR MESSAGES
   // =========================================================================

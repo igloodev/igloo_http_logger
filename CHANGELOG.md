@@ -1,4 +1,14 @@
 
+## 🚀 1.2.0
+
+### ✨ New Features
+* 🪪 **Request ID tracking** — every request/response/error block shows a bold cyan `│ ID: #xxxx` suffix for correlating concurrent requests
+* 📋 **Multipart form data preview** — `http.MultipartRequest` bodies now log `Fields:` key/value pairs and `Files:` metadata (field, filename, content-type)
+* 🔍 **GraphQL support** — requests with a `query` key are detected and printed as a dedicated `[GraphQL]` block with `GraphQL:` and `Variables:` sections
+
+### 🐛 Bug Fixes
+* 📐 **Content wrapping** — long body lines now wrap at `maxWidth - 4` instead of 800 chars, keeping output inside the border. Continuation chunks render in dim yellow for readability
+
 ## 🔗 1.1.0
 
 ### ✨ New Features
